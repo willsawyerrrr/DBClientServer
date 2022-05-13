@@ -1,19 +1,27 @@
+/*
+ * dbclient.c
+ *      CSSE2310 - Assignment Three - Semester One, 2022
+ *
+ *      Written by William Sawyer, w.sawyer@uqconnect.edu.au
+ *
+ * Usage:
+ *      dbclient portnum key [value]
+ * Key must not contain any spaces or newline characters.
+ */
+
 #include "dbclient.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#define EXIT_INSUFFICIENT_ARGS 1
-#define EXIT_INVALID_KEY 1
+enum ExitCode {
+    EXIT_INSUFFICIENT_ARGS = 1,
+    EXIT_INVALID_KEY = 1
+};
 
 int main(int argc, char* argv[]) {
-    // validate arguments
-    if (!validate_num_arguments(argc)) {
-        return EXIT_INSUFFICIENT_ARGS;
-    } elif (!validate_key(argv[1])) {
-        return EXIT_INVALID_KEY;
-    }
+    validate_arguments(argc, argv);
 
     // connect to server
 
@@ -22,22 +30,23 @@ int main(int argc, char* argv[]) {
     return EXIT_SUCCESS;
 }
 
-bool validate_num_arguments(int argc) {
-     if (argc < 3) {
+void validate_arguments(int argc, char* argv[]) {
+    if (argc < 3) {
         fprintf(stderr, "Usage: dbclient portnum key [value]\n");
         fflush(stderr);
-        return false;
+        exit(EXIT_INSUFFICIENT_ARGS);
+    } else if (!validate_key(argv[1])) {
+        fprintf(stderr, "dbclient: key must not contain spaces or newlines\n");
+        fflush(stderr);
+        exit(EXIT_INVALID_KEY);
     }
-     return true;
 }
 
 bool validate_key(char* key) {
     for (int i = 0; key[i]; i++) {
         if (key[i] == ' ' || key[i] == '\n') {
-            fprintf(stderr,
-                    "dbclient: key must not contain spaces or newlines\n");
-            fflush(stderr);
             return false;
+        }
     }
     return true;
 }
