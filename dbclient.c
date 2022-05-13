@@ -6,14 +6,18 @@
  *
  * Usage:
  *      dbclient portnum key [value]
- * Key must not contain any spaces or newline characters.
  */
 
 #include "dbclient.h"
 
+#include <csse2310a4.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+#define FILENAME_SIZE 15
 
 enum ExitCode {
     EXIT_INSUFFICIENT_ARGS = 1,
@@ -25,7 +29,11 @@ int main(int argc, char* argv[]) {
 
     // connect to server
 
-    // GET or PUT key/value pair
+    if (argc > 3) { // PUT request
+    
+    } else { // GET request
+    
+    }
 
     return EXIT_SUCCESS;
 }
@@ -35,19 +43,19 @@ void validate_arguments(int argc, char* argv[]) {
         fprintf(stderr, "Usage: dbclient portnum key [value]\n");
         fflush(stderr);
         exit(EXIT_INSUFFICIENT_ARGS);
-    } else if (!validate_key(argv[1])) {
-        fprintf(stderr, "dbclient: key must not contain spaces or newlines\n");
-        fflush(stderr);
-        exit(EXIT_INVALID_KEY);
     }
+
+    validate_key(argv[2]);
 }
 
-bool validate_key(char* key) {
+void validate_key(char* key) {
     for (int i = 0; key[i]; i++) {
         if (key[i] == ' ' || key[i] == '\n') {
-            return false;
+            fprintf(stderr,
+                    "dbclient: key must not contain spaces or newlines\n");
+            fflush(stderr);
+            exit(EXIT_INVALID_KEY);
         }
     }
-    return true;
 }
 
