@@ -4,7 +4,7 @@ LDFLAGS = -L /local/courses/csse2310/lib
 LDLIBS = -l csse2310a3 -l csse2310a4
 
 EXECS = dbclient dbserver
-OBJS = dbclient.o dbserver.o stringstore.o
+OBJS = dbclient.o dbserver.o request.o stringstore.o
 SHOBS = stringstore.so
 
 .PHONY = all clean
@@ -12,7 +12,7 @@ SHOBS = stringstore.so
 
 all: ${EXECS}
 
-${EXECS}: %: %.o
+${EXECS}: %: %.o request.o
 
 ${OBJS}: %.o: %.c %.h
 

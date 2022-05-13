@@ -17,8 +17,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define FILENAME_SIZE 15
-
 enum ExitCode {
     EXIT_INSUFFICIENT_ARGS = 1,
     EXIT_INVALID_KEY = 1
@@ -34,7 +32,7 @@ int main(int argc, char* argv[]) {
     } else { // GET request
     
     }
-
+        
     return EXIT_SUCCESS;
 }
 
@@ -44,7 +42,7 @@ void validate_arguments(int argc, char* argv[]) {
         fflush(stderr);
         exit(EXIT_INSUFFICIENT_ARGS);
     }
-
+     
     validate_key(argv[2]);
 }
 
