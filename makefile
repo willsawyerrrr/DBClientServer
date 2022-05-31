@@ -1,7 +1,7 @@
 CC = gcc
-CFLAGS = -Wall -pedantic -std=gnu99 -I /local/courses/csse2310/include
-LDFLAGS = -L /local/courses/csse2310/lib
-LDLIBS = -l csse2310a3 -l csse2310a4
+CFLAGS = -Wall -pedantic -std=gnu99 -I/local/courses/csse2310/include
+LDFLAGS = -L/local/courses/csse2310/lib
+LDLIBS = -lcsse2310a3 -lcsse2310a4
 
 EXECS = dbclient dbserver
 OBJS = dbclient.o dbserver.o request.o stringstore.o
