@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 
+/* Size of the word "request" followed by a process ID. */
 #define FILENAME_SIZE 15
 
 FILE* construct_HTTP_request(char* action, char* database, char* key,
