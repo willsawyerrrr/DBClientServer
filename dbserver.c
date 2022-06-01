@@ -17,6 +17,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define MIN_ARGS 3
+
 enum ExitCode {
     EXIT_INVALID_COMMAND = 1
 };
@@ -28,7 +30,7 @@ int main(int argc, char* argv[]) {
 }
 
 void validate_arguments(int argc, char* argv[]) {
-    if (argc < 3
+    if (argc < MIN_ARGS
             || !validate_connections(argv[2])
             || (argc > 3 && !validate_portnum(argv[3]))) {
         fprintf(stderr, "Usage: dbserver authfile connections [portnum]\n");
@@ -55,6 +57,6 @@ bool validate_integral_arg(char* arg) {
         }
     }
 
-    return strlen(arg); // only return true if arg is non-empty
+    return strlen(arg) ? true : false; // only return true if arg is non-empty
 }
 
