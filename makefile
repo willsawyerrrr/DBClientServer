@@ -5,7 +5,7 @@ LDLIBS = -lcsse2310a3 -lcsse2310a4 -lstringstore -pthread -lm
 
 EXECS = dbclient dbserver
 OBJS = dbclient.o dbserver.o request.o stringstore.o
-SHARED = stringstore.so
+SHARED = libstringstore.so
 
 .PHONY = all clean
 .DEFAULT_GOAL := all
@@ -16,7 +16,7 @@ ${EXECS}: %: %.o request.o
 
 ${OBJS}: %.o: %.c %.h
 
-${SHARED}: %.so: %.o
+libstringstore.so: stringstore.o
 	${CC} -shared -o $@ stringstore.o
 
 clean:
