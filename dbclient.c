@@ -51,8 +51,6 @@ int main(int argc, char* argv[]) {
     // send request
     fprintf(write, "%s", request);
     fflush(write);
-    printf("%s", request);
-    fflush(stdout);
     free(request);
 
     int exitCode = handle_response(read, action);
