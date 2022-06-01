@@ -1,30 +1,66 @@
 #include "request.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-/* Size of the word "request" followed by a process ID. */
-#define FILENAME_SIZE 15
+/*
+ * Number of characters common across HTTP request lines:
+ *  - space between action and database;        (1 char)
+ *  - two slashes in database;                  (2 chars)
+ *  - space between database and HTTP version:  (1 char)
+ *  - HTTP version;                             (8 chars)
+ *  - CRLF sequence; and                        (2 chars)
+ *  - null terminator.                          (1 char)
+ */
+#define REQUEST_TEMPLATE_SIZE 15
 
-FILE* construct_HTTP_request(char* action, char* database, char* key,
+/*
+ * Number of characters common across HTTP Content-Length headers:
+ * - "Content-Length: " prefix; and             (16 chars)
+ * - CRLF sequence.                             (2 chars)
+ *
+ * NOTE: A null terminator is already present from the template size.
+ *       As such, no space is allocated here.
+ */
+#define CONTENT_LENGTH_TEMPLATE_SIZE 18
+
+#define CRLF_SIZE 2
+
+char* construct_HTTP_request(char* action, char* database, char* key,
         char* value) {
-    char* filename = malloc(sizeof(char) * FILENAME_SIZE);
-    sprintf(filename, "request%d", getpid()); // request file unique to process
-
-    FILE* request = fopen(filename, "w");
-    fprintf(request, "%s /%s/%s HTTP/1.1\r\n", action, database, key);
+    // add data size to template size to get total size for memory allocation
+    int requestSize = REQUEST_TEMPLATE_SIZE + strlen(action)
+            + strlen(database) + strlen(key);
+    // create buffer to hold request
+    char* request = malloc(sizeof(char) * requestSize);
+    
+    sprintf(request, "%s /%s/%s HTTP/1.1\r\n", action, database, key);
     
     if (value) {
-        fprintf(request, "Content-Length: %ld\r\n", strlen(value) + 1);
-        fprintf(request, "%s", value);
+        int valueLength = strlen(value);
+        // length of decimal string representing length of given value
+        // i.e. the number of characters required to add the Content-Length
+        int strLength = log10(valueLength) + 1;
+
+        // already have space for a null terminator - no need to add it again,
+        // but we do need to add space for the prefix, the content length
+        // number and the content itself
+        requestSize += (CONTENT_LENGTH_TEMPLATE_SIZE + strLength
+                + valueLength);
+
+        request = realloc(request, requestSize);
+        sprintf(request, "Content-Length: %d\r\n", valueLength);
+        sprintf(request, "%s", value);
     } else {
-        fprintf(request, "\r\n");
+        // allocate space for CRLF sequence to terminate header line
+        requestSize += CRLF_SIZE;
+        request = realloc(request, requestSize);
+        sprintf(request, "\r\n");
     }
 
-    fclose(request);
-
-    return fopen(filename, "r");
+    return request;
 }
 
