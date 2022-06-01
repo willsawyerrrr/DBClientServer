@@ -13,7 +13,7 @@
  * argv: array of command line arguments
  *
  * Returns if and only if the given arguments are valid. If the given arguments
- * are invalid, the process exits accordingly.
+ * are invalid, the process emits an error message and exits with status 1.
  */
 void validate_arguments(int argc, char* argv[]);
 
@@ -28,6 +28,16 @@ void validate_arguments(int argc, char* argv[]);
  * otherwise.
  */
 void validate_key(char* key);
+
+/* get_addr()
+ * ---------
+ * Returns an internet-specific socket address structure corresponding to the
+ * given port on localhost.
+ *
+ * If an address for the given port cannot be found, the process emits an error
+ * message and exits with status 2.
+ */
+struct sockaddr_in* get_addr(char* port);
 
 #endif
 

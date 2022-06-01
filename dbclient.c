@@ -23,7 +23,8 @@
 
 enum ExitCode {
     EXIT_INSUFFICIENT_ARGS = 1,
-    EXIT_INVALID_KEY = 1
+    EXIT_INVALID_KEY = 1,
+    EXIT_CANNOT_CONNECT = 2
 };
 
 int main(int argc, char* argv[]) {
@@ -70,5 +71,30 @@ void validate_key(char* key) {
             exit(EXIT_INVALID_KEY);
         }
     }
+}
+
+// Inspired by net1.c, shown in weej 9's contact
+struct sockaddr_in* get_addr(char* port) {
+    struct addrinfo* info = NULL;
+
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;          // want to use IPv4
+    hints.ai_socktype = SOCK_STREAM;    // want to use TCP
+
+    if (getaddrinfo("localhost", port, &hints, &info)) {
+        // could not get an address
+        freeaddrinfo(info);
+        fprintf(stderr, "dbclient: unable to connect to port %s\n", port);
+        fflush(stderr);
+        exit(EXIT_CANNOT_CONNECT);
+    }
+
+    // get generic socket address
+    struct sockaddr* generic = info->ai_addr;
+    // get internet-specific socket address
+    struct sockaddr_in* internetAddress = (struct sockaddr_in*) generic;
+
+    return internetAddress;
 }
 
