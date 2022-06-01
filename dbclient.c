@@ -9,12 +9,16 @@
  */
 
 #include "dbclient.h"
+#include "request.h"
 
 #include <csse2310a4.h>
+#include <netdb.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 enum ExitCode {
@@ -25,14 +29,25 @@ enum ExitCode {
 int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
 
+    // create socket
+    
     // connect to server
-
+    
+    // construct request
+    char* request = NULL;
     if (argc > 3) { // PUT request
-    
+        request = construct_HTTP_request("PUT", "public", argv[2], NULL);
     } else { // GET request
-    
+        request = construct_HTTP_request("GET", "public", argv[2], argv[3]);
     }
-        
+
+    // communicate request
+
+    // close connection
+
+    // send request
+    
+    free(request);
     return EXIT_SUCCESS;
 }
 
