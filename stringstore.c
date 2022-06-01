@@ -12,8 +12,10 @@ typedef struct StringStore {
 StringStore* stringstore_init(void) {
     // create new element with empty key and value and no next element
     StringStore* ss = malloc(sizeof(StringStore));
-    strncpy(ss->key, "\0", 1);
-    strncpy(ss->value, "\0", 1);
+    ss->key = malloc(sizeof(char));
+    strcpy(ss->key, "");
+    ss->value = malloc(sizeof(char));
+    strcpy(ss->value, "");
     ss->next = NULL;
     return ss;
 }
@@ -40,8 +42,11 @@ int stringstore_add(StringStore* store, const char* key, const char* value) {
     
     // create new element
     StringStore* new = stringstore_init();
-    new->key = newKey;
-    new->value = newValue;
+    new->key = realloc(new->key, strlen(key));
+    strcpy(new->key, newKey);
+
+    new->value = realloc(new->value, strlen(value));
+    strcpy(new->value, newValue);
 
     // skip existing to last element
     while (store->next) {
