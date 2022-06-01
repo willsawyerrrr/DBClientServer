@@ -37,7 +37,7 @@ void validate_key(char* key);
  * If an address for the given port cannot be found, the process emits an error
  * message and exits with status 2.
  */
-struct sockaddr_in* get_addr(char* port);
+struct sockaddr* get_addr(char* port);
 
 #endif
 

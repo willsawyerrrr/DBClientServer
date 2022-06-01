@@ -30,9 +30,16 @@ enum ExitCode {
 int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
 
-    // create socket
-    
-    // connect to server
+    char* port = argv[1];
+    struct sockaddr* internetAddress = get_addr(port);
+
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(fd, internetAddress, sizeof(struct sockaddr_in))) {
+        // could not connect
+        fprintf(stderr, "dbclient: unable to connect to port %s\n", port);
+        fflush(stderr);
+        return EXIT_CANNOT_CONNECT;
+    }
     
     // construct request
     char* request = NULL;
@@ -74,7 +81,7 @@ void validate_key(char* key) {
 }
 
 // Inspired by net1.c, shown in weej 9's contact
-struct sockaddr_in* get_addr(char* port) {
+struct sockaddr* get_addr(char* port) {
     struct addrinfo* info = NULL;
 
     struct addrinfo hints;
@@ -91,10 +98,8 @@ struct sockaddr_in* get_addr(char* port) {
     }
 
     // get generic socket address
-    struct sockaddr* generic = info->ai_addr;
-    // get internet-specific socket address
-    struct sockaddr_in* internetAddress = (struct sockaddr_in*) generic;
+    struct sockaddr* address = info->ai_addr;
 
-    return internetAddress;
+    return address;
 }
 
