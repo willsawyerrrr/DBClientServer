@@ -1,7 +1,7 @@
 #ifndef DBCLIENT_H
 #define DBCLIENT_H
 
-#include <stdbool.h>
+#include <stdio.h>
 
 /* validate_arguments()
  * --------------------
@@ -29,6 +29,17 @@ void validate_arguments(int argc, char* argv[]);
  */
 void validate_key(char* key);
 
+/* establish_connection()
+ * ----------------------
+ * Attempts to establish a connection to the specified port on localhost and
+ * returns a file descriptor referring to the socket used to communicate over
+ * this connection.
+ *
+ * If the specified port does not result in a successful connection, the
+ * process emits an error message and exits with status 2.
+ */
+int establish_connection(char* port);
+
 /* get_addr()
  * ---------
  * Returns an internet-specific socket address structure corresponding to the
@@ -38,6 +49,15 @@ void validate_key(char* key);
  * message and exits with status 2.
  */
 struct sockaddr* get_addr(char* port);
+
+/* handle_response()
+ * -----------------
+ * Parses the HTTP response sent to the given stream and handles the response
+ * according to the action requested.
+ *
+ * Returns the appropriate process exit code to be used after cleanup.
+ */
+int handle_response(FILE* stream, char* action);
 
 #endif
 

@@ -30,32 +30,23 @@ enum ExitCode {
 int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
 
-    char* port = argv[1];
-    struct sockaddr* internetAddress = get_addr(port);
+    int fd = establish_connection(argv[1]);
 
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (connect(fd, internetAddress, sizeof(struct sockaddr_in))) {
-        // could not connect
-        fprintf(stderr, "dbclient: unable to connect to port %s\n", port);
-        fflush(stderr);
-        return EXIT_CANNOT_CONNECT;
-    }
+    int fd2 = dup(fd);
+    FILE* read = fdopen(fd, "r");
+    FILE* write = fdopen(fd2, "w");
     
-    // construct request
-    char* request = NULL;
-    if (argc > 3) { // PUT request
-        request = construct_HTTP_request("PUT", "public", argv[2], NULL);
-    } else { // GET request
-        request = construct_HTTP_request("GET", "public", argv[2], argv[3]);
+    char* action = malloc(4);
+    if (argc > 3) {     // value specified - PUT request
+        strncpy(action, "PUT\0", 4);   // 4 bytes to include '\0'
+    } else {            // value not specified - GET request
+        strncpy(action, "GET\0", 4);
     }
-
-    // communicate request
+    char* request = construct_HTTP_request(action, "public", argv[2], argv[3]);
 
     // close connection
-
-    // send request
-    
-    free(request);
+    fclose(read);
+    fclose(write);
     return EXIT_SUCCESS;
 }
 
@@ -80,7 +71,21 @@ void validate_key(char* key) {
     }
 }
 
-// Inspired by net1.c, shown in weej 9's contact
+int establish_connection(char* port) {
+    struct sockaddr* address = get_addr(port);
+
+    int socketDes = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(socketDes, address, sizeof(struct sockaddr_in))) {
+        // could not connect
+        fprintf(stderr, "dbclient: unable to connect to port %s\n", port);
+        fflush(stderr);
+        exit(EXIT_CANNOT_CONNECT);
+    }
+
+    return socketDes;
+}
+
+// Inspired by net1.c, shown in week 9's contact
 struct sockaddr* get_addr(char* port) {
     struct addrinfo* info = NULL;
 
@@ -97,9 +102,7 @@ struct sockaddr* get_addr(char* port) {
         exit(EXIT_CANNOT_CONNECT);
     }
 
-    // get generic socket address
-    struct sockaddr* address = info->ai_addr;
-
-    return address;
+    // return generic socket address member
+    return info->ai_addr;
 }
 
