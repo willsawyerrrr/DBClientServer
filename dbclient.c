@@ -24,7 +24,10 @@
 enum ExitCode {
     EXIT_INSUFFICIENT_ARGS = 1,
     EXIT_INVALID_KEY = 1,
-    EXIT_CANNOT_CONNECT = 2
+    EXIT_CANNOT_CONNECT = 2,
+    EXIT_GET_FAILED = 3,
+    EXIT_PUT_FAILED = 4,
+    EXIT_BAD_RESPONSE = 5
 };
 
 int main(int argc, char* argv[]) {
@@ -36,18 +39,28 @@ int main(int argc, char* argv[]) {
     FILE* read = fdopen(fd, "r");
     FILE* write = fdopen(fd2, "w");
     
+    char* request = NULL;
     char* action = malloc(4);
     if (argc > 3) {     // value specified - PUT request
-        strncpy(action, "PUT\0", 4);   // 4 bytes to include '\0'
+        strcpy(action, "PUT");   // 4 bytes to include '\0'
     } else {            // value not specified - GET request
-        strncpy(action, "GET\0", 4);
+        strcpy(action, "GET");
     }
-    char* request = construct_HTTP_request(action, "public", argv[2], argv[3]);
+    request = construct_HTTP_request(action, "public", argv[2], argv[3]);
+
+    // send request
+    fprintf(write, "%s", request);
+    fflush(write);
+    printf("%s", request);
+    fflush(stdout);
+    free(request);
+
+    int exitCode = handle_response(read, action);
 
     // close connection
     fclose(read);
     fclose(write);
-    return EXIT_SUCCESS;
+    return exitCode;
 }
 
 void validate_arguments(int argc, char* argv[]) {
@@ -77,6 +90,7 @@ int establish_connection(char* port) {
     int socketDes = socket(AF_INET, SOCK_STREAM, 0);
     if (connect(socketDes, address, sizeof(struct sockaddr_in))) {
         // could not connect
+        perror("Connecting");
         fprintf(stderr, "dbclient: unable to connect to port %s\n", port);
         fflush(stderr);
         exit(EXIT_CANNOT_CONNECT);
@@ -102,7 +116,37 @@ struct sockaddr* get_addr(char* port) {
         exit(EXIT_CANNOT_CONNECT);
     }
 
-    // return generic socket address member
+    // get and return generic socket address member
     return info->ai_addr;
+}
+
+int handle_response(FILE* stream, char* action) {
+    int status;
+    char* statusexplanation;
+    HttpHeader** headers;
+    char* body;
+
+    if (!get_HTTP_response(stream, &status, &statusexplanation, &headers,
+                &body)) {
+        // EOF or bad response
+        return EXIT_BAD_RESPONSE;
+    }
+
+    if (status == 200) {
+        // OK
+        if (!strncmp(action, "GET", 4)) {
+            printf("%s\n", body);
+            fflush(stdout);
+        }
+        return EXIT_SUCCESS;
+    } else {
+        // not OK
+        if (!strncmp(action, "GET", 4)) {
+            return EXIT_GET_FAILED;
+        } else {
+            return EXIT_PUT_FAILED;
+        }
+    }
+        
 }
 
