@@ -36,7 +36,7 @@
 int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
 
-    FILE* authfile = get_authfile(argv[1]);
+    FILE* authfile = get_authfile(argv[AUTHFILE_ARG]);
 
     int connections = atoi(argv[CONNECTIONS_ARG]);
     char* port = argv[PORTNUM_ARG] ? argv[PORTNUM_ARG] : "0";
