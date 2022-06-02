@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
     int portnum = get_portnum(server);
     fprintf(stderr, "%d\n", portnum);
     fflush(stderr);
-    
+ 
     return EXIT_SUCCESS;
 }
 
@@ -119,6 +119,6 @@ int get_portnum(int server) {
         return 0;
     }
 
-    return address.sin_port;
+    return htons(address.sin_port); // convert to network-byte order
 }
 
