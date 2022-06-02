@@ -169,14 +169,14 @@ void* client_thread(void* arg) {
     FILE* write = fdopen(socket2, "w");
 
     while (true) {
-        printf("inside loop\n");
-        fflush(stdout);
         // get request
         char* method;
         char* address;
         HttpHeader** reqHeaders;
         char* body;
-        int valid = get_HTTP_request(read, &method, &address, &reqHeaders, &body);
+
+        int valid = get_HTTP_request(read, &method, &address, &reqHeaders,
+                &body);
 
         if (!valid) {
             break;
@@ -184,16 +184,14 @@ void* client_thread(void* arg) {
 
         // split address into database and key
         char** splitAddress = split_by_char(address, '/', 3);
-        char* dbName = splitAddress[0];
-        char* key = splitAddress[1];
+        char* dbName = splitAddress[1]; // skip over empty string at start
+        char* key = splitAddress[2];
 
         StringStore* database = NULL;
         if (!strncmp(dbName, "public", 7)) {
             database = public;
         } else if (!strncmp(dbName, "private", 8)) {
             database = private;
-        } else {
-            break;
         }
 
         ResponseArgs* ra = get_response_args(method, database, key, body);
@@ -215,12 +213,14 @@ void* client_thread(void* arg) {
         
         free(method);
         free(address);
+        free_array_of_headers(reqHeaders);
         free(body);
 
         free(ra->statusExplanation);
         if (ra->result) {
             free(ra->result);
         }
+        free(ra);
 
         free_array_of_headers(headers); // frees header and its members, too
 
@@ -228,7 +228,6 @@ void* client_thread(void* arg) {
     }
 
     // cleanup - everything else freed within loop
-    printf("cleaning\n");
     fclose(read);
     fclose(write);
     
@@ -272,7 +271,7 @@ ResponseArgs* get_response_args(char* method, StringStore* database,
             break;
         case 400:
             statusExplanation = malloc(BAD_REQ_LENGTH);
-            strncpy(statusExplanation, "Bad request", BAD_REQ_LENGTH);
+            strncpy(statusExplanation, "Bad Request", BAD_REQ_LENGTH);
             break;
         case 404:
             statusExplanation = malloc(NOT_FOUND_LENGTH);
