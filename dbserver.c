@@ -137,6 +137,28 @@ void process_connections(int server) {
 }
 
 void* client_thread(void* arg) {
+    int socket = *(int*) arg;
+    int socket2 = dup(socket);
+    free(arg);
+
+    FILE* read = fdopen(socket, "r");
+    FILE* write = fdopen(socket2, "w");
+
+    // get request
+    char* method;
+    char* address;
+    HttpHeader** headers;
+    char* body;
+    int valid = get_HTTP_request(read, &method, &address, &headers, &body);
+
+    // action request
+
+    // contruct response
+
+    // send response
+
+    //cleanup
+
     return NULL;
 }
 
