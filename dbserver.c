@@ -38,9 +38,10 @@ int main(int argc, char* argv[]) {
 
     FILE* authfile = get_authfile(argv[1]);
 
+    int connections = atoi(argv[CONNECTIONS_ARG]);
     char* port = argv[PORTNUM_ARG] ? argv[PORTNUM_ARG] : "0";
-    int server = begin_listening(port);
-    
+    int server = begin_listening(port, connections);
+
     int portnum = get_portnum(server);
     fprintf(stderr, "%d\n", portnum);
     fflush(stderr);
@@ -91,12 +92,17 @@ FILE* get_authfile(char* filename) {
     return authfile;
 }
 
-int bind_server(char* port) {
+int begin_listening(char* port, int connections) {
     struct sockaddr* address = get_addr(port);
     int server = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (!address || bind(server, address, sizeof(struct sockaddr))) {
-        // if address is NULL or could not bind
+    int optVal = 1;
+    if (!address
+            || setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &optVal,
+                    sizeof(int))
+            || bind(server, address, sizeof(struct sockaddr))
+            || listen(server, connections)) {
+        // error trying to get address info, set socket options, bind or listen
         fprintf(stderr, "dbserver: unable to open socket for listening\n");
         fflush(stderr);
         exit(EXIT_CANNOT_LISTEN);

@@ -68,17 +68,17 @@ bool validate_integral_arg(char* arg);
  */
 FILE* get_authfile(char* filename);
 
-/* bind_server()
+/* begin_listening()
  * -------------
  * Returns a file descriptor referring to the socket used to communicate over
  * the specified port (or ephemeral port if the specified port is 0).
  *
  * port: string representation of the port to connect to (or 0)
  *
- * If the given port cannot be connected to, the process emits an error message
- * and exits with status 3.
+ * If an error occurs while setting up a socket to listen, the process emits
+ * an error message and exits with status 3.
  */
-int bind_server(char* port);
+int begin_listening(char* port, int connections);
 
 /* get_portnum()
  * -------------
