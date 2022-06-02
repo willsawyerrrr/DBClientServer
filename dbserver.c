@@ -16,6 +16,7 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -46,9 +47,23 @@
 #define CON_LEN_SIZE 15
 #define CON_VAL_SIZE 3
 
+Statistics* stats;
+
 int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
 
+    set_handler();
+
+    stats = malloc(sizeof(Statistics));
+    memset(stats, 0, sizeof(Statistics));
+    sem_init(&(stats->lock), 0, 1);
+    stats->connected = 0;
+    stats->disconnected = 0;
+    stats->authFailures = 0;
+    stats->gets = 0;
+    stats->puts = 0;
+    stats->deletes = 0;
+    
     StringStore* public = stringstore_init();
     sem_t publicLock;
     sem_init(&publicLock, 0, 1);
@@ -106,6 +121,27 @@ bool validate_integral_arg(char* arg) {
     }
 
     return strlen(arg); // only return true if arg is non-empty
+}
+
+void set_handler() {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(struct sigaction));
+    sa.sa_handler = show_stats;
+    sa.sa_flags = SA_RESTART;
+
+    sigaction(SIGHUP, &sa, 0);
+}
+
+void show_stats() {
+    sem_wait(&(stats->lock));
+    fprintf(stderr, "Connected clients:%d\n", stats->connected);
+    fprintf(stderr, "Completed clients:%d\n", stats->disconnected);
+    fprintf(stderr, "Auth failures:%d\n", stats->authFailures);
+    fprintf(stderr, "GET operations:%d\n", stats->gets);
+    fprintf(stderr, "PUT operations:%d\n", stats->puts);
+    fprintf(stderr, "DELETE operations:%d\n", stats->deletes);
+    fflush(stderr);
+    sem_post(&(stats->lock));
 }
 
 FILE* get_authfile(char* filename) {

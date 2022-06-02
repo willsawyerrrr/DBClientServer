@@ -7,6 +7,16 @@
 #include <stringstore.h>
 
 typedef struct {
+    sem_t lock;
+    int connected;
+    int disconnected;
+    int authFailures;
+    int gets;
+    int puts;
+    int deletes;
+} Statistics;
+
+typedef struct {
     StringStore* public;
     sem_t publicLock;
     StringStore* private;
@@ -71,6 +81,18 @@ bool validate_portnum(char* arg);
  * false otherwise.
  */
 bool validate_integral_arg(char* arg);
+
+/* set_handler()
+ * -------------
+ * Sets the signal handler for SIGHUP.
+ */
+void set_handler();
+
+/* show_stats()
+ * ------------
+ * Emits statistics reflecting the program's operation to date.
+ */
+void show_stats();
 
 /* get_authfile()
  * --------------
