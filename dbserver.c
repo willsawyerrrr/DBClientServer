@@ -22,11 +22,11 @@
 #define MIN_ARGS 3
 #define MAX_ARGS 4
 
-enum ExitCode {
-    EXIT_INVALID_COMMAND = 1,
-    EXIT_CANNOT_AUTHENTICATE = 2,
-    EXIT_CANNOT_LISTEN = 3
-};
+// macro instead of Enum since more exist where external functions: i.e. those
+// in the header 'address.h'; may cause the process to exit.
+#define EXIT_INVALID_COMMAND 1
+#define EXIT_CANNOT_AUTHENTICATE 2
+#define EXIT_CANNOT_LISTEN 3
 
 int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
