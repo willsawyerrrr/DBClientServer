@@ -21,13 +21,14 @@ typedef struct {
     sem_t publicLock;
     StringStore* private;
     sem_t privateLock;
+    char* authstring;
     int socket;
 } ThreadArgs;
 
 typedef struct {
     int status;
     char* statusExplanation;
-    char* result;
+    const char* result;
 } ResponseArgs;
 
 /* validate_arguments()
@@ -142,7 +143,7 @@ int get_portnum(int server);
  * Does not return any value.
  */
 void process_connections(int server, StringStore* public, sem_t publicLock,
-        StringStore* private, sem_t privateLock);
+        StringStore* private, sem_t privateLock, char* authstring);
 
 /* client_thread()
  * ---------------

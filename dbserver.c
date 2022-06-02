@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
     sem_t privateLock;
     sem_init(&privateLock, 0, 1);
 
-    char* authString = get_authstring(argv[AUTHFILE_ARG]);
+    char* authstring = get_authstring(argv[AUTHFILE_ARG]);
 
     int connections = atoi(argv[CONNECTIONS_ARG]);
     char* port = argv[PORTNUM_ARG] ? argv[PORTNUM_ARG] : "0";
@@ -83,7 +83,8 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "%d\n", portnum);
     fflush(stderr);
 
-    process_connections(server, public, publicLock, private, privateLock);
+    process_connections(server, public, publicLock, private, privateLock,
+            authstring);
 
     stringstore_free(public);
     sem_destroy(&publicLock);
@@ -189,7 +190,7 @@ int get_portnum(int server) {
 }
 
 void process_connections(int server, StringStore* public, sem_t publicLock,
-        StringStore* private, sem_t privateLock) {
+        StringStore* private, sem_t privateLock, char* authstring) {
     while (1) {
         ThreadArgs* ta = malloc(sizeof(ThreadArgs));
         memset(ta, 0, sizeof(ThreadArgs));
@@ -197,6 +198,7 @@ void process_connections(int server, StringStore* public, sem_t publicLock,
         ta->publicLock = publicLock;
         ta->private = private;
         ta->privateLock = privateLock;
+        ta->authstring = authstring;
 
         ta->socket = accept(server, 0, 0);
 
@@ -280,7 +282,7 @@ void* client_thread(void* arg) {
 
         free(ra->statusExplanation);
         if (ra->result) {
-            free(ra->result);
+            free((char*) ra->result);
         }
         free(ra);
 
@@ -305,7 +307,7 @@ ResponseArgs* get_response_args(char* method, StringStore* database,
         sem_t lock, char* key, char* value) {
     int status = 0;;
     char* statusExplanation = NULL;
-    char* result = NULL;
+    const char* result = NULL;
 
     if (!database) {
         status = 400;
