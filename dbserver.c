@@ -8,9 +8,11 @@
  *      dbserver authfile connections [portnum]
  */
 
+#include "address.h"
 #include "dbserver.h"
 
 #include <csse2310a4.h>
+#include <netdb.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -18,19 +20,31 @@
 #include <string.h>
 
 #define MIN_ARGS 3
+#define MAX_ARGS 4
 
 enum ExitCode {
-    EXIT_INVALID_COMMAND = 1
+    EXIT_INVALID_COMMAND = 1,
+    EXIT_CANNOT_AUTHENTICATE = 2,
+    EXIT_CANNOT_LISTEN = 3
 };
 
 int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
 
+    FILE* authfile = get_authfile(argv[1]);
+
+    char* port = argv[3] ? argv[3] : "0";
+    int server = bind_server(port);
+
+    int portnum = get_portnum(server);
+    fprintf(stderr, "%d\n", portnum);
+    fflush(stderr);
+    
     return EXIT_SUCCESS;
 }
 
 void validate_arguments(int argc, char* argv[]) {
-    if (argc < MIN_ARGS
+    if (argc < MIN_ARGS || argc > MAX_ARGS
             || !validate_connections(argv[2])
             || (argc > 3 && !validate_portnum(argv[3]))) {
         fprintf(stderr, "Usage: dbserver authfile connections [portnum]\n");
@@ -57,6 +71,43 @@ bool validate_integral_arg(char* arg) {
         }
     }
 
-    return strlen(arg) ? true : false; // only return true if arg is non-empty
+    return strlen(arg); // only return true if arg is non-empty
+}
+
+FILE* get_authfile(char* filename) {
+    FILE* authfile = fopen(filename, "r");
+
+    if (!authfile) {
+        fprintf(stderr, "dbserver: unable to read authentication string\n");
+        fflush(stderr);
+        exit(EXIT_CANNOT_AUTHENTICATE);
+    }
+
+    return authfile;
+}
+
+int bind_server(char* port) {
+    struct sockaddr* address = get_addr(port);
+    int server = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (!address || bind(server, address, sizeof(struct sockaddr))) {
+        // if address is NULL or could not bind
+        fprintf(stderr, "dbserver: unable to open socket for listening\n");
+        fflush(stderr);
+        exit(EXIT_CANNOT_LISTEN);
+    }
+
+    return server;
+}
+
+int get_portnum(int server) {
+    struct sockaddr_in address;
+    memset(&address, 0, sizeof(address));
+    socklen_t size = sizeof(address);
+    if (getsockname(server, (struct sockaddr*) &address, &size)) {
+        return 0;
+    }
+
+    return address.sin_port;
 }
 
