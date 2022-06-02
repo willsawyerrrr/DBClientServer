@@ -206,6 +206,9 @@ void process_connections(int server, StringStore* public, sem_t publicLock,
 }
 
 void* client_thread(void* arg) {
+    sem_wait(&(stats->lock));
+    stats->connected += 1;
+    sem_post(&(stats->lock));
     ThreadArgs* ta = (ThreadArgs*) arg;
 
     StringStore* public = ta->public;
@@ -286,7 +289,12 @@ void* client_thread(void* arg) {
     // cleanup - everything else freed within loop
     fclose(read);
     fclose(write);
-    
+
+    sem_wait(&(stats->lock));
+    stats->connected -= 1;
+    stats->disconnected += 1;
+    sem_post(&(stats->lock));
+
     return NULL;
 }
 
@@ -302,6 +310,9 @@ ResponseArgs* get_response_args(char* method, StringStore* database,
         sem_wait(&lock);
         if ((result = stringstore_retrieve(database, key))) {
             status = 200;
+            sem_wait(&(stats->lock));
+            stats->gets += 1;
+            sem_post(&(stats->lock));
         } else {
             status = 404;
         }
@@ -310,6 +321,9 @@ ResponseArgs* get_response_args(char* method, StringStore* database,
         sem_wait(&lock);
         if (stringstore_add(database, key, value)) {
             status = 200;
+            sem_wait(&(stats->lock));
+            stats->puts += 1;
+            sem_post(&(stats->lock));
         } else {
             status = 404;
         }
@@ -318,6 +332,9 @@ ResponseArgs* get_response_args(char* method, StringStore* database,
         sem_wait(&lock);
         if (stringstore_add(database, key, value)) {
             status = 200;
+            sem_wait(&(stats->lock));
+            stats->deletes += 1;
+            sem_post(&(stats->lock));
         } else {
             status = 404;
         }
