@@ -35,25 +35,20 @@ void validate_key(char* key);
  * returns a file descriptor referring to the socket used to communicate over
  * this connection.
  *
+ * port: string representation of port to connect to
+ *
  * If the specified port does not result in a successful connection, the
  * process emits an error message and exits with status 2.
  */
 int establish_connection(char* port);
 
-/* get_addr()
- * ---------
- * Returns an internet-specific socket address structure corresponding to the
- * given port on localhost.
- *
- * If an address for the given port cannot be found, the process emits an error
- * message and exits with status 2.
- */
-struct sockaddr* get_addr(char* port);
-
 /* handle_response()
  * -----------------
  * Parses the HTTP response sent to the given stream and handles the response
  * according to the action requested.
+ *
+ * stream: stream connecting this client process to the server
+ * action: whether this client's request was to GET or PUT
  *
  * Returns the appropriate process exit code to be used after cleanup.
  */

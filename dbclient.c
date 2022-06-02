@@ -8,6 +8,7 @@
  *      dbclient portnum key [value]
  */
 
+#include "address.h"
 #include "dbclient.h"
 #include "request.h"
 
@@ -26,8 +27,7 @@ enum ExitCode {
     EXIT_INVALID_KEY = 1,
     EXIT_CANNOT_CONNECT = 2,
     EXIT_GET_FAILED = 3,
-    EXIT_PUT_FAILED = 4,
-    EXIT_BAD_RESPONSE = 5
+    EXIT_PUT_FAILED = 4
 };
 
 int main(int argc, char* argv[]) {
@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
     char* request = NULL;
     char* action = malloc(4);
     if (argc > 3) {     // value specified - PUT request
-        strcpy(action, "PUT");   // 4 bytes to include '\0'
+        strcpy(action, "PUT");
     } else {            // value not specified - GET request
         strcpy(action, "GET");
     }
@@ -51,13 +51,13 @@ int main(int argc, char* argv[]) {
     // send request
     fprintf(write, "%s", request);
     fflush(write);
+    fclose(write);
     free(request);
 
     int exitCode = handle_response(read, action);
 
     // close connection
     fclose(read);
-    fclose(write);
     return exitCode;
 }
 
@@ -84,11 +84,10 @@ void validate_key(char* key) {
 
 int establish_connection(char* port) {
     struct sockaddr* address = get_addr(port);
-
     int socketDes = socket(AF_INET, SOCK_STREAM, 0);
-    if (connect(socketDes, address, sizeof(struct sockaddr_in))) {
-        // could not connect
-        perror("Connecting");
+
+    if (!address || connect(socketDes, address, sizeof(struct sockaddr_in))) {
+        // if address is NULL or could not connect
         fprintf(stderr, "dbclient: unable to connect to port %s\n", port);
         fflush(stderr);
         exit(EXIT_CANNOT_CONNECT);
@@ -97,40 +96,14 @@ int establish_connection(char* port) {
     return socketDes;
 }
 
-// Inspired by net1.c, shown in week 9's contact
-struct sockaddr* get_addr(char* port) {
-    struct addrinfo* info = NULL;
-
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_INET;          // want to use IPv4
-    hints.ai_socktype = SOCK_STREAM;    // want to use TCP
-
-    if (getaddrinfo("localhost", port, &hints, &info)) {
-        // could not get an address
-        freeaddrinfo(info);
-        fprintf(stderr, "dbclient: unable to connect to port %s\n", port);
-        fflush(stderr);
-        exit(EXIT_CANNOT_CONNECT);
-    }
-
-    // get and return generic socket address member
-    return info->ai_addr;
-}
-
 int handle_response(FILE* stream, char* action) {
     int status;
     char* statusexplanation;
     HttpHeader** headers;
     char* body;
 
-    if (!get_HTTP_response(stream, &status, &statusexplanation, &headers,
-                &body)) {
-        // EOF or bad response
-        return EXIT_BAD_RESPONSE;
-    }
-
-    if (status == 200) {
+    if (get_HTTP_response(stream, &status, &statusexplanation, &headers,
+                &body) && status == 200) {
         // OK
         if (!strncmp(action, "GET", 4)) {
             printf("%s\n", body);

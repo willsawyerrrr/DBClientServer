@@ -4,7 +4,7 @@ LDFLAGS = -L/local/courses/csse2310/lib
 LDLIBS = -lcsse2310a3 -lcsse2310a4 -lstringstore -pthread -lm
 
 EXECS = dbclient dbserver
-OBJS = dbclient.o dbserver.o request.o stringstore.o
+OBJS = address.o dbclient.o dbserver.o request.o stringstore.o
 SHARED = libstringstore.so
 
 .PHONY = all clean
@@ -12,7 +12,7 @@ SHARED = libstringstore.so
 
 all: ${EXECS} ${SHARED}
 
-${EXECS}: %: %.o request.o
+${EXECS}: %: %.o address.o request.o
 
 ${OBJS}: %.o: %.c %.h
 
