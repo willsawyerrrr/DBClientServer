@@ -168,49 +168,69 @@ void* client_thread(void* arg) {
     FILE* read = fdopen(socket, "r");
     FILE* write = fdopen(socket2, "w");
 
-    // get request
-    char* method;
-    char* address;
-    char* body;
-    int valid = get_HTTP_request(read, &method, &address, NULL, &body);
+    while (true) {
+        printf("inside loop\n");
+        fflush(stdout);
+        // get request
+        char* method;
+        char* address;
+        HttpHeader** reqHeaders;
+        char* body;
+        int valid = get_HTTP_request(read, &method, &address, &reqHeaders, &body);
 
-    if (!valid) {
-        fclose(read);
-        fclose(write);
-        return NULL;
+        if (!valid) {
+            break;
+        }
+
+        // split address into database and key
+        char** splitAddress = split_by_char(address, '/', 3);
+        char* dbName = splitAddress[0];
+        char* key = splitAddress[1];
+
+        StringStore* database = NULL;
+        if (!strncmp(dbName, "public", 7)) {
+            database = public;
+        } else if (!strncmp(dbName, "private", 8)) {
+            database = private;
+        } else {
+            break;
+        }
+
+        ResponseArgs* ra = get_response_args(method, database, key, body);
+
+        HttpHeader** headers = malloc(sizeof(HttpHeader*));
+        memset(headers, 0, sizeof(HttpHeader*));
+
+        HttpHeader* header = malloc(sizeof(HttpHeader));
+        memset(header, 0, sizeof(HttpHeader));
+        header->name = malloc(CON_LEN_SIZE);
+        sprintf(header->name, "Content-Length");
+        header->value = malloc(CON_VAL_SIZE);
+        sprintf(header->value, "%ld", ra->result ? strlen(ra->result) : 0);
+        headers[0] = header;
+        char* response = construct_HTTP_response(ra->status,
+                ra->statusExplanation, headers, ra->result);
+        fprintf(write, "%s", response);
+        fflush(write);
+        
+        free(method);
+        free(address);
+        free(body);
+
+        free(ra->statusExplanation);
+        if (ra->result) {
+            free(ra->result);
+        }
+
+        free_array_of_headers(headers); // frees header and its members, too
+
+        free(response);
     }
 
-    // split address into database and key
-    char** splitAddress = split_by_char(address, '/', 2);
-    char* dbName = splitAddress[1]; // skip empty string at start
-    char* key = splitAddress[2];
-
-    StringStore* database = NULL;
-    if (!strncmp(dbName, "public", 7)) {
-        database = public;
-    } else if (!strncmp(dbName, "private", 8)) {
-        database = private;
-    }
-
-    ResponseArgs* ra = get_response_args(method, database, key, body);
-
-    HttpHeader** headers = malloc(sizeof(HttpHeader*));
-    memset(headers, 0, sizeof(HttpHeader*));
-
-    HttpHeader* header = malloc(sizeof(HttpHeader));
-    memset(header, 0, sizeof(HttpHeader));
-    header->name = malloc(CON_LEN_SIZE);
-    sprintf(header->name, "Content-Length");
-    header->value = malloc(CON_VAL_SIZE);
-    sprintf(header->value, "%ld", strlen(ra->result));
-    headers[0] = header;
-
-    char* response = construct_HTTP_response(ra->status, ra->statusExplanation,
-            headers, ra->result);
-    fprintf(write, "%s\n", response);
-    fflush(write);
-
-    //cleanup
+    // cleanup - everything else freed within loop
+    printf("cleaning\n");
+    fclose(read);
+    fclose(write);
     
     return NULL;
 }
