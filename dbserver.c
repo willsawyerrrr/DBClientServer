@@ -15,6 +15,7 @@
 #include <netdb.h>
 #include <ctype.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -49,7 +50,12 @@ int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
 
     StringStore* public = stringstore_init();
+    sem_t publicLock;
+    sem_init(&publicLock, 0, 1);
+
     StringStore* private = stringstore_init();
+    sem_t privateLock;
+    sem_init(&privateLock, 0, 1);
 
     FILE* authfile = get_authfile(argv[AUTHFILE_ARG]);
 
@@ -61,8 +67,13 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "%d\n", portnum);
     fflush(stderr);
 
-    process_connections(server, public, private);
- 
+    process_connections(server, public, publicLock, private, privateLock);
+
+    stringstore_free(public);
+    sem_destroy(&publicLock);
+
+    stringstore_free(private);
+    sem_destroy(&privateLock);
     return EXIT_SUCCESS;
 }
 
@@ -138,13 +149,15 @@ int get_portnum(int server) {
     return htons(address.sin_port); // convert to network-byte order
 }
 
-void process_connections(int server, StringStore* public,
-        StringStore* private) {
+void process_connections(int server, StringStore* public, sem_t publicLock,
+        StringStore* private, sem_t privateLock) {
     while (1) {
         ThreadArgs* ta = malloc(sizeof(ThreadArgs));
         memset(ta, 0, sizeof(ThreadArgs));
         ta->public = public;
+        ta->publicLock = publicLock;
         ta->private = private;
+        ta->privateLock = privateLock;
 
         ta->socket = accept(server, 0, 0);
 
@@ -160,7 +173,11 @@ void* client_thread(void* arg) {
     ThreadArgs* ta = (ThreadArgs*) arg;
 
     StringStore* public = ta->public;
+    sem_t publicLock = ta->publicLock;
+
     StringStore* private = ta->private;
+    sem_t privateLock = ta->privateLock;
+
     int socket = ta->socket;
     free(ta);
 
@@ -188,13 +205,16 @@ void* client_thread(void* arg) {
         char* key = splitAddress[2];
 
         StringStore* database = NULL;
+        sem_t lock;
         if (!strncmp(dbName, "public", 7)) {
             database = public;
+            lock = publicLock;
         } else if (!strncmp(dbName, "private", 8)) {
             database = private;
+            lock = privateLock;
         }
 
-        ResponseArgs* ra = get_response_args(method, database, key, body);
+        ResponseArgs* ra = get_response_args(method, database, lock, key, body);
 
         HttpHeader** headers = malloc(sizeof(HttpHeader*));
         memset(headers, 0, sizeof(HttpHeader*));
@@ -235,7 +255,7 @@ void* client_thread(void* arg) {
 }
 
 ResponseArgs* get_response_args(char* method, StringStore* database,
-        char* key, char* value) {
+        sem_t lock, char* key, char* value) {
     int status = 0;;
     char* statusExplanation = NULL;
     char* result = NULL;
@@ -243,23 +263,29 @@ ResponseArgs* get_response_args(char* method, StringStore* database,
     if (!database) {
         status = 400;
     } else if (!strncmp(method, "GET", 4)) {
+        sem_wait(&lock);
         if ((result = stringstore_retrieve(database, key))) {
             status = 200;
         } else {
             status = 404;
         }
+        sem_post(&lock);
     } else if (!strncmp(method, "PUT", 4)) {
+        sem_wait(&lock);
         if (stringstore_add(database, key, value)) {
             status = 200;
         } else {
             status = 404;
         }
+        sem_post(&lock);
     } else if (!strncmp(method, "DELETE", 7)) {
+        sem_wait(&lock);
         if (stringstore_add(database, key, value)) {
             status = 200;
         } else {
             status = 404;
         }
+        sem_post(&lock);
     } else {
         status = 400;
     }

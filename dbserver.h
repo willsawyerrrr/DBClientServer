@@ -1,13 +1,16 @@
 #ifndef DBSERVER_H
 #define DBSERVER_H
 
+#include <semaphore.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stringstore.h>
 
 typedef struct {
     StringStore* public;
+    sem_t publicLock;
     StringStore* private;
+    sem_t privateLock;
     int socket;
 } ThreadArgs;
 
@@ -109,11 +112,15 @@ int get_portnum(int server);
  * Spawns client-handling threads to interact with incoming connections.
  *
  * server: file descriptor referring to the server's communication socket
+ * public: public database
+ * publicLock: semaphore lock on public database
+ * private: private database
+ * privateLock: semaphore lock on private database
  *
  * Does not return any value.
  */
-void process_connections(int server, StringStore* public,
-        StringStore* private);
+void process_connections(int server, StringStore* public, sem_t publicLock,
+        StringStore* private, sem_t privateLock);
 
 /* client_thread()
  * ---------------
@@ -139,6 +146,6 @@ void* client_thread(void* arg);
  * Returns a structure of arguments for constructing a HTTP response.
  */
 ResponseArgs* get_response_args(char* method, StringStore* database,
-        char* key, char* value);
+        sem_t lock, char* key, char* value);
 
 #endif
