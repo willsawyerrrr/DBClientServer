@@ -38,7 +38,8 @@ char* construct_HTTP_request(char* action, char* database, char* key,
     // create buffer to hold request
     char* request = malloc(requestSize);
     
-    sprintf(strchr(request, '\0'), "%s /%s/%s HTTP/1.1\r\n", action, database, key);
+    sprintf(strchr(request, '\0'), "%s /%s/%s HTTP/1.1\r\n", action, database,
+            key);
     
     if (value) {
         int valueLength = strlen(value);
@@ -53,7 +54,8 @@ char* construct_HTTP_request(char* action, char* database, char* key,
                 + valueLength);
 
         request = realloc(request, requestSize);
-        sprintf(strchr(request, '\0'), "Content-Length: %d\r\n\r\n", valueLength);
+        sprintf(strchr(request, '\0'), "Content-Length: %d\r\n\r\n",
+                valueLength);
         sprintf(strchr(request, '\0'), "%s", value);
     } else {
         // allocate space for CRLF sequence to terminate header line
