@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #define MIN_ARGS 3
 #define MAX_ARGS 4
@@ -28,14 +29,18 @@
 #define EXIT_CANNOT_AUTHENTICATE 2
 #define EXIT_CANNOT_LISTEN 3
 
+#define AUTHFILE_ARG 1
+#define CONNECTIONS_ARG 2
+#define PORTNUM_ARG 3
+
 int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
 
     FILE* authfile = get_authfile(argv[1]);
 
-    char* port = argv[3] ? argv[3] : "0";
-    int server = bind_server(port);
-
+    char* port = argv[PORTNUM_ARG] ? argv[PORTNUM_ARG] : "0";
+    int server = begin_listening(port);
+    
     int portnum = get_portnum(server);
     fprintf(stderr, "%d\n", portnum);
     fflush(stderr);
