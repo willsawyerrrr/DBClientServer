@@ -14,11 +14,13 @@
 #include <csse2310a4.h>
 #include <netdb.h>
 #include <ctype.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #define MIN_ARGS 3
 #define MAX_ARGS 4
@@ -45,6 +47,8 @@ int main(int argc, char* argv[]) {
     int portnum = get_portnum(server);
     fprintf(stderr, "%d\n", portnum);
     fflush(stderr);
+
+    process_connections(server);
  
     return EXIT_SUCCESS;
 }
@@ -120,5 +124,19 @@ int get_portnum(int server) {
     }
 
     return htons(address.sin_port); // convert to network-byte order
+}
+
+void process_connections(int server) {
+    while (1) {
+        int connection = accept(server, 0, 0);
+        pthread_t thread_id;
+        pthread_create(&thread_id, NULL, client_thread, (void*) &connection);
+        pthread_detach(thread_id);
+    }
+    return;
+}
+
+void* client_thread(void* arg) {
+    return NULL;
 }
 

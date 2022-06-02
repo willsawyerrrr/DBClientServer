@@ -91,4 +91,16 @@ int begin_listening(char* port, int connections);
  */
 int get_portnum(int server);
 
+/* process_connections()
+ * ---------------------
+ * Spawns client-handling threads to interact with incoming connections.
+ *
+ * server: file descriptor referring to the server's communication socket
+ *
+ * Does not return any value.
+ */
+void process_connections(int server);
+
+void* client_thread(void* arg);
+
 #endif
