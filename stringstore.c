@@ -1,13 +1,14 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stringstore.h>
 
-typedef struct StringStore {
+struct StringStore {
     char* key;
     char* value;
     // makes struct a linked list
     struct StringStore* next;
-} StringStore;
+};
 
 StringStore* stringstore_init(void) {
     // create new element with empty key and value and no next element
