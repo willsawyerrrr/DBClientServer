@@ -15,27 +15,28 @@
  *  - CRLF sequence; and                        (2 chars)
  *  - null terminator.                          (1 char)
  */
-#define REQUEST_TEMPLATE_SIZE 15
+#define REQUEST_LINE_TEMPLATE_SIZE 15
 
 /*
  * Number of characters common across HTTP Content-Length headers:
- * - "Content-Length: " prefix; and             (16 chars)
- * - CRLF sequence.                             (2 chars)
+ * - "Content-Length: " prefix;                 (16 chars)
+ * - header line CRLF sequence; and             (2 chars)
+ * - blank line CRLF sequence.                  (2 chars)
  *
  * NOTE: A null terminator is already present from the template size.
  *       As such, no space is allocated here.
  */
-#define CONTENT_LENGTH_TEMPLATE_SIZE 18
+#define CONTENT_LENGTH_TEMPLATE_SIZE 20
 
 #define CRLF_SIZE 2
 
 char* construct_HTTP_request(char* action, char* database, char* key,
         char* value) {
     // add data size to template size to get total size for memory allocation
-    int requestSize = REQUEST_TEMPLATE_SIZE + strlen(action)
+    int requestSize = REQUEST_LINE_TEMPLATE_SIZE + strlen(action)
             + strlen(database) + strlen(key);
     // create buffer to hold request
-    char* request = malloc(sizeof(char) * requestSize);
+    char* request = malloc(requestSize);
     
     sprintf(strchr(request, '\0'), "%s /%s/%s HTTP/1.1\r\n", action, database, key);
     
@@ -52,7 +53,7 @@ char* construct_HTTP_request(char* action, char* database, char* key,
                 + valueLength);
 
         request = realloc(request, requestSize);
-        sprintf(strchr(request, '\0'), "Content-Length: %d\r\n", valueLength);
+        sprintf(strchr(request, '\0'), "Content-Length: %d\r\n\r\n", valueLength);
         sprintf(strchr(request, '\0'), "%s", value);
     } else {
         // allocate space for CRLF sequence to terminate header line
