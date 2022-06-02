@@ -39,6 +39,9 @@ int stringstore_add(StringStore* store, const char* key, const char* value) {
     if (!newKey || !newValue) { // if either strdup call failed
         return 0;
     }
+
+    // delete existing element
+    stringstore_delete(store, key);
     
     // create new element
     StringStore* new = stringstore_init();
@@ -53,7 +56,7 @@ int stringstore_add(StringStore* store, const char* key, const char* value) {
         store = store->next;
     }
 
-    // make new element the "next" member of last currently existing element
+    // append to end of list
     store->next = new;
 
     return 1;
