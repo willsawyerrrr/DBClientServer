@@ -11,6 +11,7 @@
 #include "address.h"
 #include "dbserver.h"
 
+#include <csse2310a3.h>
 #include <csse2310a4.h>
 #include <netdb.h>
 #include <ctype.h>
@@ -72,7 +73,7 @@ int main(int argc, char* argv[]) {
     sem_t privateLock;
     sem_init(&privateLock, 0, 1);
 
-    FILE* authfile = get_authfile(argv[AUTHFILE_ARG]);
+    char* authString = get_authstring(argv[AUTHFILE_ARG]);
 
     int connections = atoi(argv[CONNECTIONS_ARG]);
     char* port = argv[PORTNUM_ARG] ? argv[PORTNUM_ARG] : "0";
@@ -144,16 +145,18 @@ void show_stats() {
     sem_post(&(stats->lock));
 }
 
-FILE* get_authfile(char* filename) {
+char* get_authstring(char* filename) {
     FILE* authfile = fopen(filename, "r");
+    char* authstring = read_line(authfile);
+    fclose(authfile);
 
-    if (!authfile) {
+    if (!authfile || !authstring) {
         fprintf(stderr, "dbserver: unable to read authentication string\n");
         fflush(stderr);
         exit(EXIT_CANNOT_AUTHENTICATE);
     }
 
-    return authfile;
+    return authstring;
 }
 
 int begin_listening(char* port, int connections) {

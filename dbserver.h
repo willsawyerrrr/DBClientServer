@@ -94,17 +94,17 @@ void set_handler();
  */
 void show_stats();
 
-/* get_authfile()
+/* get_authstring()
  * --------------
- * Returns a stream connected to the authentication file with the specified
- * filename.
+ * Returns the first line of the speciied authentication file.
  *
  * filename: name of authentication file
  *
- * If no such file can be opened for reading, the process emits an error
- * message exits with status 2.
+ * If the specified file cannot be opened for reading or the file can be opened
+ * but the first line is, the process emits an error message and exits with
+ * status 2.
  */
-FILE* get_authfile(char* filename);
+char* get_authstring(char* filename);
 
 /* begin_listening()
  * -------------
