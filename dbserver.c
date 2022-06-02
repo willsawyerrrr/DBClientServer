@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stringstore.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -35,8 +36,20 @@
 #define CONNECTIONS_ARG 2
 #define PORTNUM_ARG 3
 
+// size required to store status explanations - including '\0'
+#define OK_LENGTH 3
+#define NOT_FOUND_LENGTH 10
+#define BAD_REQ_LENGTH 12
+
+// size required to store the name and value of the Content-Length header
+#define CON_LEN_SIZE 15
+#define CON_VAL_SIZE 3
+
 int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
+
+    StringStore* public = stringstore_init();
+    StringStore* private = stringstore_init();
 
     FILE* authfile = get_authfile(argv[AUTHFILE_ARG]);
 
@@ -48,7 +61,7 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "%d\n", portnum);
     fflush(stderr);
 
-    process_connections(server);
+    process_connections(server, public, private);
  
     return EXIT_SUCCESS;
 }
@@ -100,10 +113,9 @@ int begin_listening(char* port, int connections) {
     struct sockaddr* address = get_addr(port);
     int server = socket(AF_INET, SOCK_STREAM, 0);
 
-    int optVal = 1;
+    int set = 1;
     if (!address
-            || setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &optVal,
-                    sizeof(int))
+            || setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &set, sizeof(int))
             || bind(server, address, sizeof(struct sockaddr))
             || listen(server, connections)) {
         // error trying to get address info, set socket options, bind or listen
@@ -126,39 +138,136 @@ int get_portnum(int server) {
     return htons(address.sin_port); // convert to network-byte order
 }
 
-void process_connections(int server) {
+void process_connections(int server, StringStore* public,
+        StringStore* private) {
     while (1) {
-        int connection = accept(server, 0, 0);
-        pthread_t thread_id;
-        pthread_create(&thread_id, NULL, client_thread, (void*) &connection);
-        pthread_detach(thread_id);
+        ThreadArgs* ta = malloc(sizeof(ThreadArgs));
+        memset(ta, 0, sizeof(ThreadArgs));
+        ta->public = public;
+        ta->private = private;
+
+        ta->socket = accept(server, 0, 0);
+
+        pthread_t threadId;
+        pthread_create(&threadId, NULL, client_thread, (void*) ta);
+        pthread_detach(threadId);
     }
+
     return;
 }
 
 void* client_thread(void* arg) {
-    int socket = *(int*) arg;
-    int socket2 = dup(socket);
-    free(arg);
+    ThreadArgs* ta = (ThreadArgs*) arg;
 
+    StringStore* public = ta->public;
+    StringStore* private = ta->private;
+    int socket = ta->socket;
+    free(ta);
+
+    int socket2 = dup(socket);
     FILE* read = fdopen(socket, "r");
     FILE* write = fdopen(socket2, "w");
 
     // get request
     char* method;
     char* address;
-    HttpHeader** headers;
     char* body;
-    int valid = get_HTTP_request(read, &method, &address, &headers, &body);
+    int valid = get_HTTP_request(read, &method, &address, NULL, &body);
 
-    // action request
+    if (!valid) {
+        fclose(read);
+        fclose(write);
+        return NULL;
+    }
 
-    // contruct response
+    // split address into database and key
+    char** splitAddress = split_by_char(address, '/', 2);
+    char* dbName = splitAddress[1]; // skip empty string at start
+    char* key = splitAddress[2];
 
-    // send response
+    StringStore* database = NULL;
+    if (!strncmp(dbName, "public", 7)) {
+        database = public;
+    } else if (!strncmp(dbName, "private", 8)) {
+        database = private;
+    }
+
+    ResponseArgs* ra = get_response_args(method, database, key, body);
+
+    HttpHeader** headers = malloc(sizeof(HttpHeader*));
+    memset(headers, 0, sizeof(HttpHeader*));
+
+    HttpHeader* header = malloc(sizeof(HttpHeader));
+    memset(header, 0, sizeof(HttpHeader));
+    header->name = malloc(CON_LEN_SIZE);
+    sprintf(header->name, "Content-Length");
+    header->value = malloc(CON_VAL_SIZE);
+    sprintf(header->value, "%ld", strlen(ra->result));
+    headers[0] = header;
+
+    char* response = construct_HTTP_response(ra->status, ra->statusExplanation,
+            headers, ra->result);
+    fprintf(write, "%s\n", response);
+    fflush(write);
 
     //cleanup
-
+    
     return NULL;
+}
+
+ResponseArgs* get_response_args(char* method, StringStore* database,
+        char* key, char* value) {
+    int status = 0;;
+    char* statusExplanation = NULL;
+    char* result = NULL;
+
+    if (!database) {
+        status = 400;
+    } else if (!strncmp(method, "GET", 4)) {
+        if ((result = stringstore_retrieve(database, key))) {
+            status = 200;
+        } else {
+            status = 404;
+        }
+    } else if (!strncmp(method, "PUT", 4)) {
+        if (stringstore_add(database, key, value)) {
+            status = 200;
+        } else {
+            status = 404;
+        }
+    } else if (!strncmp(method, "DELETE", 7)) {
+        if (stringstore_add(database, key, value)) {
+            status = 200;
+        } else {
+            status = 404;
+        }
+    } else {
+        status = 400;
+    }
+
+    switch (status) {
+        case 200:
+            statusExplanation = malloc(OK_LENGTH);
+            strncpy(statusExplanation, "OK", OK_LENGTH);
+            break;
+        case 400:
+            statusExplanation = malloc(BAD_REQ_LENGTH);
+            strncpy(statusExplanation, "Bad request", BAD_REQ_LENGTH);
+            break;
+        case 404:
+            statusExplanation = malloc(NOT_FOUND_LENGTH);
+            strncpy(statusExplanation, "Not Found", NOT_FOUND_LENGTH);
+            break;
+        default:
+            break;
+    }
+    
+    ResponseArgs* ra = malloc(sizeof(ResponseArgs));
+    memset(ra, 0, sizeof(ResponseArgs));
+    ra->status = status;
+    ra->statusExplanation = statusExplanation;
+    ra->result = result;
+
+    return ra;
 }
 

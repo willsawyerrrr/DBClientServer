@@ -3,6 +3,19 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stringstore.h>
+
+typedef struct {
+    StringStore* public;
+    StringStore* private;
+    int socket;
+} ThreadArgs;
+
+typedef struct {
+    int status;
+    char* statusExplanation;
+    char* result;
+} ResponseArgs;
 
 /* validate_arguments()
  * --------------------
@@ -99,8 +112,33 @@ int get_portnum(int server);
  *
  * Does not return any value.
  */
-void process_connections(int server);
+void process_connections(int server, StringStore* public,
+        StringStore* private);
 
+/* client_thread()
+ * ---------------
+ * Handles communication over specific connection with a client.
+ *
+ * arg: void* cast of ThreadArgs* object containing the communication socket
+ *      and databases
+ *
+ * Returns NULL.
+ */
 void* client_thread(void* arg);
+
+/* get_response_args()
+ * -------------------
+ * Processes the request summarised by the given method, database, key and
+ * value.
+ *
+ * method: action to take on the database
+ * database: database to act on
+ * key: key to act on within the database
+ * value: if not NULL, value to assign to key within the database
+ *
+ * Returns a structure of arguments for constructing a HTTP response.
+ */
+ResponseArgs* get_response_args(char* method, StringStore* database,
+        char* key, char* value);
 
 #endif
