@@ -1,6 +1,7 @@
 #ifndef DBSERVER_H
 #define DBSERVER_H
 
+#include <csse2310a4.h>
 #include <semaphore.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -95,7 +96,7 @@ void set_handler();
  */
 void show_stats();
 
-/* get_authstring()
+/* get_required_authstring()
  * --------------
  * Returns the first line of the speciied authentication file.
  *
@@ -105,7 +106,7 @@ void show_stats();
  * but the first line is, the process emits an error message and exits with
  * status 2.
  */
-char* get_authstring(char* filename);
+char* get_required_authstring(char* filename);
 
 /* begin_listening()
  * -------------
@@ -164,24 +165,25 @@ void* client_thread(void* arg);
  * requestHeaders: array of HttpHeader* to search through
  *
  * Returns a string representing the supplied authorisation string, if one is
- * found; otherwise, returns NULL;
+ * found; otherwise, returns NULL.
  */
 char* get_supplied_authstring(HttpHeader** requestHeaders);
 
 /* get_response_args()
  * -------------------
  * Processes the request summarised by the given method, database, key and
- * value. If the given lock is NULL, the request is unauthorisez.
+ * value.
  *
  * method: action to take on the database
  * database: database to act on
- * lock: if not NULL, the mutual exclusion lock on the database
+ * lock: the mutual exclusion lock on the database
  * key: key to act on within the database
  * value: if not NULL, value to assign to key within the database
+ * authorised: whether or not the response is authorised
  *
  * Returns a structure of arguments for constructing a HTTP response.
  */
 ResponseArgs* get_response_args(char* method, StringStore* database,
-        sem_t lock, char* key, char* value);
+        sem_t lock, char* key, char* value, bool authorised);
 
 #endif

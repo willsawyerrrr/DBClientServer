@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
     sem_t privateLock;
     sem_init(&privateLock, 0, 1);
 
-    char* authstring = get_authstring(argv[AUTHFILE_ARG]);
+    char* authstring = get_required_authstring(argv[AUTHFILE_ARG]);
 
     int connections = atoi(argv[CONNECTIONS_ARG]);
     char* port = argv[PORTNUM_ARG] ? argv[PORTNUM_ARG] : "0";
@@ -147,7 +147,7 @@ void show_stats() {
     sem_post(&(stats->lock));
 }
 
-char* get_authstring(char* filename) {
+char* get_required_authstring(char* filename) {
     FILE* authfile = fopen(filename, "r");
     char* authstring = read_line(authfile);
     fclose(authfile);
@@ -256,21 +256,24 @@ void* client_thread(void* arg) {
 
         StringStore* database = NULL;
         sem_t lock;
+        bool authorised = false;
         if (!strncmp(dbName, "public", 7)) {
             database = public;
             lock = publicLock;
+            authorised = true;
         } else if (!strncmp(dbName, "private", 8)) {
             database = private;
-            if (suppliedAuthString
-                    && !strncmp(requiredAuthstring, suppliedAuthString)) {
+            lock = privateLock;
+            if (suppliedAuthstring
+                    && !strncmp(requiredAuthstring, suppliedAuthstring,
+                        strlen(requiredAuthstring) + 1)) {
                 // if an authstring was supplied and it is correct
-                lock = privateLock;
-            } else {
-                lock = NULL;
+                authorised = true;
             }
         }
 
-        ResponseArgs* ra = get_response_args(method, database, lock, key, body);
+        ResponseArgs* ra = get_response_args(method, database, lock, key, body,
+                authorised);
 
         HttpHeader** headers = malloc(sizeof(HttpHeader*));
         memset(headers, 0, sizeof(HttpHeader*));
@@ -328,18 +331,18 @@ char* get_supplied_authstring(HttpHeader** requestHeaders) {
 }
 
 ResponseArgs* get_response_args(char* method, StringStore* database,
-        sem_t lock, char* key, char* value) {
+        sem_t lock, char* key, char* value, bool authorised) {
     int status = 0;;
     char* statusExplanation = NULL;
     const char* result = NULL;
 
     if (!database) {
         status = 400;
-    } else if (!lock) {
+    } else if (!authorised) {
         status = 401;
         sem_wait(&(stats->lock));
         stats->authFailures += 1;
-        sem_post(&(stats->lock))l
+        sem_post(&(stats->lock));
     } else if (!strncmp(method, "GET", 4)) {
         sem_wait(&lock);
         if ((result = stringstore_retrieve(database, key))) {
