@@ -156,13 +156,26 @@ void process_connections(int server, StringStore* public, sem_t publicLock,
  */
 void* client_thread(void* arg);
 
+/* get_supplied_authstring()
+ * -------------------------
+ * Searches the given array of HttpHeader* for an element whose value is
+ * "Authorization" and returns its value.
+ *
+ * requestHeaders: array of HttpHeader* to search through
+ *
+ * Returns a string representing the supplied authorisation string, if one is
+ * found; otherwise, returns NULL;
+ */
+char* get_supplied_authstring(HttpHeader** requestHeaders);
+
 /* get_response_args()
  * -------------------
  * Processes the request summarised by the given method, database, key and
- * value.
+ * value. If the given lock is NULL, the request is unauthorisez.
  *
  * method: action to take on the database
  * database: database to act on
+ * lock: if not NULL, the mutual exclusion lock on the database
  * key: key to act on within the database
  * value: if not NULL, value to assign to key within the database
  *

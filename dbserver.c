@@ -41,8 +41,9 @@
 
 // size required to store status explanations - including '\0'
 #define OK_LENGTH 3
-#define NOT_FOUND_LENGTH 10
 #define BAD_REQ_LENGTH 12
+#define UNAUTH_LENGTH 13
+#define N_FOUND_LENGTH 10
 
 // size required to store the name and value of the Content-Length header
 #define CON_LEN_SIZE 15
@@ -214,6 +215,7 @@ void* client_thread(void* arg) {
     sem_wait(&(stats->lock));
     stats->connected += 1;
     sem_post(&(stats->lock));
+
     ThreadArgs* ta = (ThreadArgs*) arg;
 
     StringStore* public = ta->public;
@@ -222,7 +224,10 @@ void* client_thread(void* arg) {
     StringStore* private = ta->private;
     sem_t privateLock = ta->privateLock;
 
+    char* requiredAuthstring = ta->authstring;
+
     int socket = ta->socket;
+
     free(ta);
 
     int socket2 = dup(socket);
@@ -233,11 +238,12 @@ void* client_thread(void* arg) {
         // get request
         char* method;
         char* address;
-        HttpHeader** reqHeaders;
+        HttpHeader** requestHeaders;
         char* body;
 
-        int valid = get_HTTP_request(read, &method, &address, &reqHeaders,
+        int valid = get_HTTP_request(read, &method, &address, &requestHeaders,
                 &body);
+        char* suppliedAuthstring = get_supplied_authstring(requestHeaders);
 
         if (!valid) {
             break;
@@ -255,7 +261,13 @@ void* client_thread(void* arg) {
             lock = publicLock;
         } else if (!strncmp(dbName, "private", 8)) {
             database = private;
-            lock = privateLock;
+            if (suppliedAuthString
+                    && !strncmp(requiredAuthstring, suppliedAuthString)) {
+                // if an authstring was supplied and it is correct
+                lock = privateLock;
+            } else {
+                lock = NULL;
+            }
         }
 
         ResponseArgs* ra = get_response_args(method, database, lock, key, body);
@@ -277,7 +289,7 @@ void* client_thread(void* arg) {
         
         free(method);
         free(address);
-        free_array_of_headers(reqHeaders);
+        free_array_of_headers(requestHeaders);
         free(body);
 
         free(ra->statusExplanation);
@@ -303,6 +315,18 @@ void* client_thread(void* arg) {
     return NULL;
 }
 
+char* get_supplied_authstring(HttpHeader** requestHeaders) {
+    for (int i = 0; requestHeaders[i]; i++) {
+        HttpHeader* header = requestHeaders[i];
+        if (!strncmp(header->name, "Authorization",
+                    strlen("Authorization") + 1)) {
+            return header->value;
+        }
+    }
+
+    return NULL;
+}
+
 ResponseArgs* get_response_args(char* method, StringStore* database,
         sem_t lock, char* key, char* value) {
     int status = 0;;
@@ -311,6 +335,11 @@ ResponseArgs* get_response_args(char* method, StringStore* database,
 
     if (!database) {
         status = 400;
+    } else if (!lock) {
+        status = 401;
+        sem_wait(&(stats->lock));
+        stats->authFailures += 1;
+        sem_post(&(stats->lock))l
     } else if (!strncmp(method, "GET", 4)) {
         sem_wait(&lock);
         if ((result = stringstore_retrieve(database, key))) {
@@ -357,9 +386,13 @@ ResponseArgs* get_response_args(char* method, StringStore* database,
             statusExplanation = malloc(BAD_REQ_LENGTH);
             strncpy(statusExplanation, "Bad Request", BAD_REQ_LENGTH);
             break;
+        case 401:
+            statusExplanation = malloc(UNAUTH_LENGTH);
+            strncpy(statusExplanation, "Unauthorized", UNAUTH_LENGTH);
+            break;
         case 404:
-            statusExplanation = malloc(NOT_FOUND_LENGTH);
-            strncpy(statusExplanation, "Not Found", NOT_FOUND_LENGTH);
+            statusExplanation = malloc(N_FOUND_LENGTH);
+            strncpy(statusExplanation, "Not Found", N_FOUND_LENGTH);
             break;
         default:
             break;
