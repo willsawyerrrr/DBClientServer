@@ -52,10 +52,13 @@
 int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
 
+    int connections = atoi(argv[CONNECTIONS_ARG]);
+    
     Statistics* stats;
     stats = malloc(sizeof(Statistics));
     memset(stats, 0, sizeof(Statistics));
     sem_init(&(stats->lock), 0, 1);
+    stats->maxConnections = connections;
     stats->connected = 0;
     stats->disconnected = 0;
     stats->authFailures = 0;
@@ -64,17 +67,17 @@ int main(int argc, char* argv[]) {
     stats->deletes = 0;
 
     // create signal set
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SIGHUP);
+    sigset_t* set = malloc(sizeof(sigset_t));
+    sigemptyset(set);
+    sigaddset(set, SIGHUP);
 
     // block signals in set
-    pthread_sigmask(SIG_BLOCK, &set, NULL);
+    pthread_sigmask(SIG_BLOCK, set, NULL);
 
     // create arguments for signal handling thread
     SigThreadArgs* sta = malloc(sizeof(SigThreadArgs));
     memset(sta, 0, sizeof(SigThreadArgs));
-    sta->set = &set;
+    sta->set = set;
     sta->stats = stats;
     
     // create signal handling thread
@@ -92,7 +95,6 @@ int main(int argc, char* argv[]) {
 
     char* authstring = get_required_authstring(argv[AUTHFILE_ARG]);
 
-    int connections = atoi(argv[CONNECTIONS_ARG]);
     char* port = argv[PORTNUM_ARG] ? argv[PORTNUM_ARG] : "0";
     int server = begin_listening(port, connections);
 
@@ -248,18 +250,28 @@ void* client_thread(void* arg) {
     char* requiredAuthstring = cta->authstring;
 
     int socket = cta->socket;
+    int socket2 = dup(socket);
+    FILE* read = fdopen(socket, "r");
+    FILE* write = fdopen(socket2, "w");
 
     Statistics* stats = cta->stats;
 
     free(cta);
 
     sem_wait(&(stats->lock));
+    if (stats->connected == stats->maxConnections) {
+        char* response = construct_HTTP_response(503, "Service Unavailable",
+                NULL, NULL);
+        fprintf(write, response);
+        fflush(write);
+        sem_post(&(stats->lock));
+        fclose(read);
+        fclose(write);
+
+        return NULL;
+    }
     stats->connected += 1;
     sem_post(&(stats->lock));
-
-    int socket2 = dup(socket);
-    FILE* read = fdopen(socket, "r");
-    FILE* write = fdopen(socket2, "w");
 
     while (true) {
         // get request

@@ -9,6 +9,7 @@
 
 typedef struct {
     sem_t lock;
+    int maxConnections;
     int connected;
     int disconnected;
     int authFailures;
