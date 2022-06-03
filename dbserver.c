@@ -395,7 +395,7 @@ ResponseArgs* get_response_args(char* method, StringStore* database,
         sem_post(&lock);
     } else if (!strncmp(method, "DELETE", 7)) {
         sem_wait(&lock);
-        if (stringstore_add(database, key, value)) {
+        if (stringstore_delete(database, key)) {
             status = 200;
             sem_wait(&(stats->lock));
             stats->deletes += 1;
