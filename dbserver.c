@@ -49,13 +49,10 @@
 #define CON_LEN_SIZE 15
 #define CON_VAL_SIZE 3
 
-Statistics* stats;
-
 int main(int argc, char* argv[]) {
     validate_arguments(argc, argv);
 
-    set_handler();
-
+    Statistics* stats;
     stats = malloc(sizeof(Statistics));
     memset(stats, 0, sizeof(Statistics));
     sem_init(&(stats->lock), 0, 1);
@@ -65,7 +62,26 @@ int main(int argc, char* argv[]) {
     stats->gets = 0;
     stats->puts = 0;
     stats->deletes = 0;
+
+    // create signal set
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGHUP);
+
+    // block signals in set
+    pthread_sigmask(SIG_BLOCK, &set, NULL);
+
+    // create arguments for signal handling thread
+    SigThreadArgs* sta = malloc(sizeof(SigThreadArgs));
+    memset(sta, 0, sizeof(SigThreadArgs));
+    sta->set = &set;
+    sta->stats = stats;
     
+    // create signal handling thread
+    pthread_t threadId;
+    pthread_create(&threadId, NULL, signal_thread, (void*) sta);
+    pthread_detach(threadId);
+
     StringStore* public = stringstore_init();
     sem_t publicLock;
     sem_init(&publicLock, 0, 1);
@@ -85,13 +101,16 @@ int main(int argc, char* argv[]) {
     fflush(stderr);
 
     process_connections(server, public, publicLock, private, privateLock,
-            authstring);
+            authstring, stats);
 
     stringstore_free(public);
     sem_destroy(&publicLock);
 
     stringstore_free(private);
     sem_destroy(&privateLock);
+
+    free(stats);
+    sem_destroy(&(stats->lock));
     return EXIT_SUCCESS;
 }
 
@@ -126,16 +145,7 @@ bool validate_integral_arg(char* arg) {
     return strlen(arg); // only return true if arg is non-empty
 }
 
-void set_handler() {
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(struct sigaction));
-    sa.sa_handler = show_stats;
-    sa.sa_flags = SA_RESTART;
-
-    sigaction(SIGHUP, &sa, 0);
-}
-
-void show_stats() {
+void show_stats(Statistics* stats) {
     sem_wait(&(stats->lock));
     fprintf(stderr, "Connected clients:%d\n", stats->connected);
     fprintf(stderr, "Completed clients:%d\n", stats->disconnected);
@@ -191,44 +201,61 @@ int get_portnum(int server) {
 }
 
 void process_connections(int server, StringStore* public, sem_t publicLock,
-        StringStore* private, sem_t privateLock, char* authstring) {
+        StringStore* private, sem_t privateLock, char* authstring,
+        Statistics* stats) {
     while (1) {
-        ThreadArgs* ta = malloc(sizeof(ThreadArgs));
-        memset(ta, 0, sizeof(ThreadArgs));
-        ta->public = public;
-        ta->publicLock = publicLock;
-        ta->private = private;
-        ta->privateLock = privateLock;
-        ta->authstring = authstring;
+        ClientThreadArgs* cta = malloc(sizeof(ClientThreadArgs));
+        memset(cta, 0, sizeof(ClientThreadArgs));
+        cta->public = public;
+        cta->publicLock = publicLock;
+        cta->private = private;
+        cta->privateLock = privateLock;
+        cta->authstring = authstring;
+        cta->stats = stats;
 
-        ta->socket = accept(server, 0, 0);
+        cta->socket = accept(server, 0, 0);
 
         pthread_t threadId;
-        pthread_create(&threadId, NULL, client_thread, (void*) ta);
+        pthread_create(&threadId, NULL, client_thread, (void*) cta);
         pthread_detach(threadId);
     }
 
     return;
 }
 
+void* signal_thread(void* arg) {
+    SigThreadArgs* sta = (SigThreadArgs*) arg;
+    sigset_t* set = sta->set;
+    Statistics* stats = sta->stats;
+    free(sta);
+
+    int signum;
+    while (true) {
+        sigwait(set, &signum);
+        show_stats(stats);
+    }
+}
+
 void* client_thread(void* arg) {
+    ClientThreadArgs* cta = (ClientThreadArgs*) arg;
+
+    StringStore* public = cta->public;
+    sem_t publicLock = cta->publicLock;
+
+    StringStore* private = cta->private;
+    sem_t privateLock = cta->privateLock;
+
+    char* requiredAuthstring = cta->authstring;
+
+    int socket = cta->socket;
+
+    Statistics* stats = cta->stats;
+
+    free(cta);
+
     sem_wait(&(stats->lock));
     stats->connected += 1;
     sem_post(&(stats->lock));
-
-    ThreadArgs* ta = (ThreadArgs*) arg;
-
-    StringStore* public = ta->public;
-    sem_t publicLock = ta->publicLock;
-
-    StringStore* private = ta->private;
-    sem_t privateLock = ta->privateLock;
-
-    char* requiredAuthstring = ta->authstring;
-
-    int socket = ta->socket;
-
-    free(ta);
 
     int socket2 = dup(socket);
     FILE* read = fdopen(socket, "r");
@@ -273,7 +300,7 @@ void* client_thread(void* arg) {
         }
 
         ResponseArgs* ra = get_response_args(method, database, lock, key, body,
-                authorised);
+                authorised, stats);
 
         HttpHeader** headers = malloc(sizeof(HttpHeader*));
         memset(headers, 0, sizeof(HttpHeader*));
@@ -331,7 +358,8 @@ char* get_supplied_authstring(HttpHeader** requestHeaders) {
 }
 
 ResponseArgs* get_response_args(char* method, StringStore* database,
-        sem_t lock, char* key, char* value, bool authorised) {
+        sem_t lock, char* key, char* value, bool authorised,
+        Statistics* stats) {
     int status = 0;;
     char* statusExplanation = NULL;
     const char* result = NULL;

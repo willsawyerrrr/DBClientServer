@@ -18,13 +18,19 @@ typedef struct {
 } Statistics;
 
 typedef struct {
+    sigset_t* set;
+    Statistics* stats;
+} SigThreadArgs;
+
+typedef struct {
     StringStore* public;
     sem_t publicLock;
     StringStore* private;
     sem_t privateLock;
     char* authstring;
     int socket;
-} ThreadArgs;
+    Statistics* stats;
+} ClientThreadArgs;
 
 typedef struct {
     int status;
@@ -84,17 +90,13 @@ bool validate_portnum(char* arg);
  */
 bool validate_integral_arg(char* arg);
 
-/* set_handler()
- * -------------
- * Sets the signal handler for SIGHUP.
- */
-void set_handler();
-
 /* show_stats()
  * ------------
  * Emits statistics reflecting the program's operation to date.
+ *
+ * stats: statistics to emit
  */
-void show_stats();
+void show_stats(Statistics* stats);
 
 /* get_required_authstring()
  * --------------
@@ -144,14 +146,26 @@ int get_portnum(int server);
  * Does not return any value.
  */
 void process_connections(int server, StringStore* public, sem_t publicLock,
-        StringStore* private, sem_t privateLock, char* authstring);
+        StringStore* private, sem_t privateLock, char* authstring,
+        Statistics* stats);
+
+/* signal_thread()
+ * ---------------
+ * Handles SIGHUP signals.
+ *
+ * arg: void* cast of SigThreadArgs* object containing the signal set to handle
+ *      and the statistics to output
+ *
+ * Returns NULL.
+ */
+void* signal_thread(void* arg);
 
 /* client_thread()
  * ---------------
  * Handles communication over specific connection with a client.
  *
- * arg: void* cast of ThreadArgs* object containing the communication socket
- *      and databases
+ * arg: void* cast of ClientThreadArgs* object containing the communication
+ *      socket and databases
  *
  * Returns NULL.
  */
@@ -184,6 +198,7 @@ char* get_supplied_authstring(HttpHeader** requestHeaders);
  * Returns a structure of arguments for constructing a HTTP response.
  */
 ResponseArgs* get_response_args(char* method, StringStore* database,
-        sem_t lock, char* key, char* value, bool authorised);
+        sem_t lock, char* key, char* value, bool authorised,
+        Statistics* stats);
 
 #endif
