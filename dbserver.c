@@ -161,10 +161,13 @@ void show_stats(Statistics* stats) {
 
 char* get_required_authstring(char* filename) {
     FILE* authfile = fopen(filename, "r");
-    char* authstring = read_line(authfile);
-    fclose(authfile);
+    char* authstring = NULL;
+    if (authfile) {
+        authstring = read_line(authfile);
+        fclose(authfile);
+    }
 
-    if (!authfile || !authstring) {
+    if (!authstring) {
         fprintf(stderr, "dbserver: unable to read authentication string\n");
         fflush(stderr);
         exit(EXIT_CANNOT_AUTHENTICATE);
