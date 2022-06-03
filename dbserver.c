@@ -364,7 +364,7 @@ char* get_supplied_authstring(HttpHeader** requestHeaders) {
     for (int i = 0; requestHeaders[i]; i++) {
         HttpHeader* header = requestHeaders[i];
         if (!strncmp(header->name, "Authorization",
-                    strlen("Authorization") + 1)) {
+                strlen("Authorization") + 1)) {
             return header->value;
         }
     }

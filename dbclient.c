@@ -103,7 +103,7 @@ int handle_response(FILE* stream, char* action) {
     char* body;
 
     if (get_HTTP_response(stream, &status, &statusexplanation, &headers,
-                &body) && status == 200) {
+            &body) && status == 200) {
         // OK
         if (!strncmp(action, "GET", 4)) {
             printf("%s\n", body);
